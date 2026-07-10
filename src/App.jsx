@@ -31,10 +31,10 @@ function tokenizeWord(word, mergeRanks) {
 
 // --- Language meta ---
 const LANGS = [
-  { id: 'en', name: 'English', native: 'English',    script: 'Latin',      color: '#FF9933' },
-  { id: 'hi', name: 'Hindi',   native: 'हिंदी',       script: 'Devanagari', color: '#7c3aed' },
-  { id: 'te', name: 'Telugu',  native: 'తెలుగు',      script: 'Telugu',     color: '#138808' },
-  { id: 'ta', name: 'Tamil',   native: 'தமிழ்',      script: 'Tamil',      color: '#0ea5e9' },
+  { id: 'en', name: 'English', native: 'English',    script: 'Latin',      color: '#fbbf24', icon: '🔤' },
+  { id: 'hi', name: 'Hindi',   native: 'हिंदी',       script: 'Devanagari', color: '#a855f7', icon: '🕉️' },
+  { id: 'te', name: 'Telugu',  native: 'తెలుగు',      script: 'Telugu',     color: '#14f0c5', icon: '✦' },
+  { id: 'ta', name: 'Tamil',   native: 'தமிழ்',      script: 'Tamil',      color: '#60a5fa', icon: '◈' },
 ];
 
 function fmt(n) { return n.toLocaleString(); }
@@ -132,7 +132,7 @@ export default function App() {
   if (loading) return (
     <div className="loading">
       <div className="spinner" />
-      Loading BPE tokenizer data…
+      <span>Initializing tokenizer engine…</span>
     </div>
   );
 
@@ -154,24 +154,24 @@ export default function App() {
         <div className="tricolor" />
         <div className="hero-content">
           <h1>
-            India BPE Tokenizer —{' '}
-            <span className="highlight">Multilingual</span>
+            Multilingual BPE{' '}
+            <span className="highlight">Tokenizer Lab</span>
           </h1>
           <p className="subtitle">
-            A shared <em>10,000-token BPE vocabulary</em> trained on Wikipedia's India
-            article in English, Hindi, Telugu &amp; Tamil — optimized to maximize the
-            assignment score <em>1000 / (X_max − X_min)</em>.
+            Cross-script <em>10K vocabulary</em> trained on India's Wikipedia corpus
+            across four languages — engineered to minimize ratio spread
+            with <em>score = 1000 / (X_max − X_min)</em>.
           </p>
           <div className="hero-badges">
             {LANGS.map(l => (
               <span key={l.id} className="badge">
                 <span className="dot" style={{ background: l.color }} />
-                {l.native} ({l.script})
+                {l.icon} {l.native}
               </span>
             ))}
             <span className="badge">
-              <span className="dot" style={{ background: '#888' }} />
-              {fmt(stats?.vocab_size ?? 10000)} tokens
+              <span className="dot" style={{ background: '#a855f7' }} />
+              ⚡ {fmt(stats?.vocab_size ?? 10000)} vocab
             </span>
           </div>
         </div>
@@ -179,27 +179,28 @@ export default function App() {
 
       <div className="container">
 
-        {/* ── SCORE CARD ─────────────────────────── */}
+        {/* ── SCORE CARD — Centered ──────────────── */}
         <div className="score-card">
           <div className="score-main">
-            <div className="score-label">Assignment Self-Score</div>
+            <div className="score-label">⚡ Optimization Score</div>
             <div className="score-value">{stats?.self_score.toFixed(2)}</div>
             <div className="score-formula">
-              Formula: <code>1000 / (X_max − X_min)</code>
-              {' '}= <code>1000 / {stats?.diff.toFixed(6)}</code>
+              <code>score = 1000 / (X_max − X_min)</code>
+              {' '}→{' '}
+              <code>1000 / {stats?.diff.toFixed(6)}</code>
             </div>
           </div>
           <div className="score-details">
             <div className="metric">
-              <span className="metric-label">Vocab Size</span>
+              <span className="metric-label">Total Vocabulary</span>
               <span className="metric-value highlight">{fmt(stats?.vocab_size)}</span>
-              <span className="metric-lang">{stats?.base_size} base chars + {stats?.merges_size} BPE merges</span>
+              <span className="metric-lang">{stats?.base_size} base + {stats?.merges_size} merges</span>
             </div>
             <div className="metric">
-              <span className="metric-label">Ratio Spread (X_max − X_min)</span>
+              <span className="metric-label">Ratio Spread Δ</span>
               <span className="metric-value green">{stats?.diff.toFixed(6)}</span>
               <span className="metric-lang">
-                X_max = {xMax.toFixed(6)} &nbsp;|&nbsp; X_min = {xMin.toFixed(6)}
+                max {xMax.toFixed(6)} · min {xMin.toFixed(6)}
               </span>
             </div>
           </div>
@@ -209,7 +210,7 @@ export default function App() {
         <div className="panel">
           <div className="panel-header">
             <h2 className="panel-title">
-              Language Tokenization Ratios (Words / Tokens)
+              📊 Cross-Language Compression Ratios
             </h2>
           </div>
           <div className="lang-grid">
@@ -219,25 +220,25 @@ export default function App() {
               return (
                 <div key={l.id} className={`lang-card ${l.id}`}>
                   <div className="lang-card-header">
-                    <span className="lang-name">{l.native}</span>
-                    <span className="lang-code">{l.id.toUpperCase()}</span>
+                    <span className="lang-name">{l.icon} {l.native}</span>
+                    <span className="lang-code">{l.script}</span>
                   </div>
-                  <div className="ratio-label">Words / Tokens (X_{l.id === 'en' ? '1' : l.id === 'hi' ? '2' : l.id === 'te' ? '3' : '4'})</div>
+                  <div className="ratio-label">Compression Ratio (X_{l.id === 'en' ? '1' : l.id === 'hi' ? '2' : l.id === 'te' ? '3' : '4'})</div>
                   <div className="ratio-value">{r.toFixed(6)}</div>
                   <div className="ratio-bar-track">
                     <div className="ratio-bar-fill" style={{ width: `${barPct}%` }} />
                   </div>
                   <div className="lang-stats">
                     <div className="lang-stat-row">
-                      <span className="lbl">Words in corpus</span>
+                      <span className="lbl">Corpus words</span>
                       <span className="val">{fmt(stats?.word_counts[l.id] ?? 0)}</span>
                     </div>
                     <div className="lang-stat-row">
-                      <span className="lbl">Tokens produced</span>
+                      <span className="lbl">Output tokens</span>
                       <span className="val">{fmt(stats?.token_counts[l.id] ?? 0)}</span>
                     </div>
                     <div className="lang-stat-row">
-                      <span className="lbl">Merges allocated</span>
+                      <span className="lbl">Merge budget</span>
                       <span className="val">{fmt(stats?.allocations[l.id] ?? 0)}</span>
                     </div>
                   </div>
@@ -247,9 +248,9 @@ export default function App() {
           </div>
 
           {/* Merge allocation bar */}
-          <div style={{ marginTop: '1.5rem' }}>
-            <div style={{ fontSize: '0.78rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.5rem', fontWeight: 600 }}>
-              BPE Merge Allocation across Languages ({fmt(totalMerges)} total)
+          <div style={{ marginTop: '1.75rem' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--neon-purple)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.6rem', fontWeight: 600 }}>
+              Merge Budget Distribution — {fmt(totalMerges)} total merges
             </div>
             <div className="alloc-bar-track">
               {LANGS.map(l => {
@@ -261,11 +262,11 @@ export default function App() {
                 );
               })}
             </div>
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.6rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '1.25rem', marginTop: '0.7rem', flexWrap: 'wrap' }}>
               {LANGS.map(l => (
-                <span key={l.id} style={{ fontSize: '0.78rem', color: 'var(--muted)' }}>
-                  <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: l.color, marginRight: 4 }} />
-                  {l.native}: {fmt(stats?.allocations[l.id] ?? 0)} merges
+                <span key={l.id} style={{ fontSize: '0.78rem', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: l.color, boxShadow: `0 0 4px ${l.color}` }} />
+                  {l.native}: {fmt(stats?.allocations[l.id] ?? 0)}
                 </span>
               ))}
             </div>
@@ -275,7 +276,7 @@ export default function App() {
         {/* ── LIVE TOKENIZER ────────────────────── */}
         <div className="panel">
           <div className="panel-header">
-            <h2 className="panel-title">Live BPE Tokenizer</h2>
+            <h2 className="panel-title">🧪 Interactive Tokenizer</h2>
             <div className="lang-tabs">
               {LANGS.map(l => (
                 <button
@@ -283,7 +284,7 @@ export default function App() {
                   className={`lang-tab ${activeLang === l.id ? 'active' : ''}`}
                   onClick={() => setActiveLang(l.id)}
                 >
-                  {l.native}
+                  {l.icon} {l.name}
                 </button>
               ))}
             </div>
@@ -291,54 +292,54 @@ export default function App() {
 
           <div className="tokenizer-layout">
             <div className="input-wrap">
-              <label>Input Text (edit freely)</label>
+              <label>Source Text</label>
               <textarea
                 className="tok-input"
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
-                placeholder="Type or paste text in any of the four languages…"
+                placeholder="Type or paste text in English, Hindi, Telugu, or Tamil…"
               />
             </div>
 
             <div className="tok-stats">
-              <div style={{ fontSize: '0.78rem', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600, marginBottom: '0.25rem' }}>
-                Tokenization Stats
+              <div style={{ fontSize: '0.72rem', color: 'var(--neon-purple)', textTransform: 'uppercase', letterSpacing: '0.1em', fontWeight: 600, marginBottom: '0.4rem' }}>
+                ⚙ Analysis
               </div>
               <div className="tok-stat-row">
-                <span className="tok-stat-label">Words (pre-tokenized)</span>
+                <span className="tok-stat-label">Pre-tokens</span>
                 <span className="tok-stat-value">{fmt(tokResult.words)}</span>
               </div>
               <div className="tok-stat-row">
-                <span className="tok-stat-label">BPE Tokens</span>
+                <span className="tok-stat-label">BPE output</span>
                 <span className="tok-stat-value orange">{fmt(tokResult.tokens)}</span>
               </div>
               <div className="tok-stat-row">
-                <span className="tok-stat-label">Ratio W/T</span>
+                <span className="tok-stat-label">W/T ratio</span>
                 <span className="tok-stat-value green">{tokResult.ratio.toFixed(5)}</span>
               </div>
               <div className="tok-stat-row">
-                <span className="tok-stat-label">Compression</span>
+                <span className="tok-stat-label">Compression %</span>
                 <span className="tok-stat-value">{tokResult.tokens > 0 ? ((1 - tokResult.ratio) * 100).toFixed(1) : 0}%</span>
               </div>
               <div className="tok-stat-row">
-                <span className="tok-stat-label">Vocab hits</span>
+                <span className="tok-stat-label">Known tokens</span>
                 <span className="tok-stat-value">{tokResult.spans.filter(s => s.id >= 0).length}</span>
               </div>
             </div>
           </div>
 
           <div className="tok-output-wrap">
-            <div className="tok-output-label">Token Visualization (hover for details)</div>
+            <div className="tok-output-label">Token Stream Visualization</div>
             <div className="tok-output">
               {tokResult.spans.length === 0
-                ? <span className="tok-empty">Enter text above to see BPE tokenization…</span>
+                ? <span className="tok-empty">Paste text above to visualize BPE decomposition…</span>
                 : tokResult.spans.map((s, i) => {
                     const display = s.text.endsWith('</w>') ? s.text.slice(0, -4) + ' ' : s.text;
                     return (
                       <span key={i} className={`tok c${i % 6}`}>
                         {display}
                         <span className="tok-tip">
-                          "{s.text}" · ID {s.id} · {s.id < (stats?.base_size ?? 0) ? 'base char' : 'merge'}
+                          「{s.text}」 ID:{s.id} · {s.id < (stats?.base_size ?? 0) ? 'base' : 'merge'}
                         </span>
                       </span>
                     );
@@ -351,9 +352,9 @@ export default function App() {
         {/* ── VOCABULARY EXPLORER ───────────────── */}
         <div className="panel">
           <div className="panel-header">
-            <h2 className="panel-title">Vocabulary Explorer — All 10,000 Tokens</h2>
+            <h2 className="panel-title">🔍 Token Database</h2>
             <span style={{ fontSize: '0.82rem', color: 'var(--muted)' }}>
-              {fmt(filteredVocab.length)} tokens shown
+              {fmt(filteredVocab.length)} / {fmt(stats?.vocab_size ?? 0)} tokens
             </span>
           </div>
 
@@ -362,7 +363,7 @@ export default function App() {
               <svg className="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input
                 type="text"
-                placeholder="Search tokens…"
+                placeholder="Filter tokens by text or ID…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />
@@ -376,14 +377,14 @@ export default function App() {
               </select>
             </div>
             <div className="filter-group">
-              <label>Language</label>
+              <label>Script</label>
               <select className="filter-sel" value={langF} onChange={e => setLangF(e.target.value)}>
-                <option value="all">All</option>
+                <option value="all">All scripts</option>
                 <option value="base">Base vocab</option>
-                <option value="en">English</option>
-                <option value="hi">Hindi</option>
-                <option value="te">Telugu</option>
-                <option value="ta">Tamil</option>
+                <option value="en">Latin (EN)</option>
+                <option value="hi">Devanagari (HI)</option>
+                <option value="te">Telugu (TE)</option>
+                <option value="ta">Tamil (TA)</option>
               </select>
             </div>
           </div>
@@ -394,10 +395,10 @@ export default function App() {
                 <tr>
                   <th style={{ width: 70 }}>ID</th>
                   <th>Token</th>
-                  <th style={{ width: 90 }}>Type</th>
-                  <th style={{ width: 160 }}>Language</th>
-                  <th>BPE Parents</th>
-                  <th style={{ width: 90, textAlign: 'right' }}>Freq</th>
+                  <th style={{ width: 90 }}>Kind</th>
+                  <th style={{ width: 160 }}>Script</th>
+                  <th>Merge Parents</th>
+                  <th style={{ width: 90, textAlign: 'right' }}>Count</th>
                 </tr>
               </thead>
               <tbody>
@@ -405,7 +406,7 @@ export default function App() {
                   <tr key={item.id}>
                     <td className="token-id">{item.id}</td>
                     <td className="token-text">
-                      {item.token === '\n' ? '\\n' : item.token === ' ' ? '[space]' : item.token}
+                      {item.token === '\n' ? '↵' : item.token === ' ' ? '⎵' : item.token}
                     </td>
                     <td>
                       <span className={`token-type-badge ${item.isBase ? 'base' : 'merge'}`}>
@@ -417,12 +418,12 @@ export default function App() {
                         <span className={`lang-dot ${item.lang}`} />
                       )}
                       {item.isBase
-                        ? <span style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>Base Vocab</span>
-                        : (LANGS.find(l => l.id === item.lang)?.name ?? item.lang)
+                        ? <span style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>Unicode base</span>
+                        : (LANGS.find(l => l.id === item.lang)?.script ?? item.lang)
                       }
                     </td>
                     <td className="token-parents">
-                      {item.pair ? `"${item.pair[0]}" + "${item.pair[1]}"` : '—'}
+                      {item.pair ? `「${item.pair[0]}」+ 「${item.pair[1]}」` : '—'}
                     </td>
                     <td className="token-freq" style={{ textAlign: 'right' }}>{item.freq}</td>
                   </tr>
@@ -430,7 +431,7 @@ export default function App() {
                 {pageItems.length === 0 && (
                   <tr>
                     <td colSpan={6} style={{ textAlign: 'center', padding: '2rem', color: 'var(--muted)', fontStyle: 'italic' }}>
-                      No tokens match the current filters.
+                      No tokens match current filters.
                     </td>
                   </tr>
                 )}
@@ -441,14 +442,14 @@ export default function App() {
           {pageCount > 1 && (
             <div className="pagination">
               <span className="page-info">
-                Showing <em>{page * PER_PAGE + 1}–{Math.min((page+1)*PER_PAGE, filteredVocab.length)}</em> of <em>{fmt(filteredVocab.length)}</em>
+                <em>{page * PER_PAGE + 1}–{Math.min((page+1)*PER_PAGE, filteredVocab.length)}</em> of <em>{fmt(filteredVocab.length)}</em>
               </span>
               <div className="page-btns">
-                <button className="page-btn" onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0}>← Prev</button>
-                <span style={{ padding: '0.4rem 0.75rem', color: 'var(--muted)', fontSize: '0.85rem' }}>
-                  {page+1} / {pageCount}
+                <button className="page-btn" onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0}>‹ Back</button>
+                <span style={{ padding: '0.4rem 0.75rem', color: 'var(--muted)', fontSize: '0.85rem', fontFamily: 'var(--mono)' }}>
+                  {page+1}/{pageCount}
                 </span>
-                <button className="page-btn" onClick={() => setPage(p => Math.min(pageCount-1, p+1))} disabled={page === pageCount-1}>Next →</button>
+                <button className="page-btn" onClick={() => setPage(p => Math.min(pageCount-1, p+1))} disabled={page === pageCount-1}>Next ›</button>
               </div>
             </div>
           )}
@@ -457,47 +458,45 @@ export default function App() {
         {/* ── METHODOLOGY ────────────────────────── */}
         <div className="panel">
           <div className="panel-header">
-            <h2 className="panel-title">Methodology &amp; Score Calculation</h2>
+            <h2 className="panel-title">📐 How It Works</h2>
           </div>
-          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            The assignment score is <strong style={{ color: 'var(--text)' }}>1000 / (X_max − X_min)</strong> where
-            X_i = Words_i / Tokens_i for each language. Our score is{' '}
-            <strong style={{ color: 'var(--saffron)' }}>{stats?.self_score.toFixed(2)}</strong> — achieved by
-            equalizing all four ratios to ≈ <strong style={{ color: 'var(--text)' }}>0.711</strong>.
+          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '0.75rem' }}>
+            The optimization objective is <strong style={{ color: 'var(--text-bright)' }}>score = 1000 / (X_max − X_min)</strong> where
+            X_i = Words_i / Tokens_i per language. The achieved score of{' '}
+            <strong style={{ color: 'var(--neon-teal)' }}>{stats?.self_score.toFixed(2)}</strong> equalizes
+            all four ratios to ≈ <strong style={{ color: 'var(--text-bright)' }}>0.711</strong>.
           </p>
           <div className="method-grid">
             <div className="method-card">
-              <h4>1 · Script Disjointness</h4>
+              <h4>① Script Independence</h4>
               <p>
-                English (Latin), Hindi (Devanagari), Telugu, and Tamil use{' '}
-                <strong>entirely separate Unicode blocks</strong> (except digits/punctuation).
-                This means BPE merge lists are naturally partitioned — we can tune per-language
-                merge counts independently.
+                Each language uses a <strong>distinct Unicode block</strong> — Latin, Devanagari,
+                Telugu, Tamil — with minimal overlap (only digits and punctuation).
+                This natural partition enables independent merge allocation.
               </p>
             </div>
             <div className="method-card">
-              <h4>2 · Per-Language BPE Training</h4>
+              <h4>② Per-Corpus BPE Curves</h4>
               <p>
-                We trained separate BPE tokenizers on each language corpus, recording the
-                ratio W/T at every merge step. This gives us a{' '}
-                <strong>ratio-vs-merges curve</strong> for each language.
+                Individual BPE models are trained per language, recording the
+                W/T ratio at each merge step. This produces a{' '}
+                <strong>compression curve</strong> mapping merge count → ratio.
               </p>
             </div>
             <div className="method-card">
-              <h4>3 · Greedy Equalization</h4>
+              <h4>③ Greedy Ratio Balancing</h4>
               <p>
-                A greedy loop selects the language with the <strong>lowest current ratio</strong>{' '}
-                and adds one more merge from it. This iteratively pulls all four ratios toward
-                the same value using exactly <code>{fmt(totalMerges)}</code> total merges.
+                At each step, the language with the <strong>lowest current ratio</strong> receives the next merge.
+                This iterative balancing converges all four ratios using exactly{' '}
+                <code>{fmt(totalMerges)}</code> total merges.
               </p>
             </div>
             <div className="method-card">
-              <h4>4 · Inline De-duplication</h4>
+              <h4>④ Cross-Script Deduplication</h4>
               <p>
-                Latin characters appear in all languages (numbers, punctuation). We{' '}
-                <strong>de-duplicate shared merges</strong>, keeping only the earliest rank.
-                This prevents tokenization corruption and ensures the 10 000-token vocabulary
-                is exact.
+                Shared characters (ASCII digits, punctuation) can create{' '}
+                <strong>duplicate merge entries</strong>. We deduplicate by keeping only the
+                earliest-ranked merge, preserving a clean 10K vocabulary.
               </p>
             </div>
           </div>
@@ -507,8 +506,8 @@ export default function App() {
 
       {/* ── FOOTER ───────────────────────────────── */}
       <footer>
-        India Multilingual BPE Tokenizer · Vocab: <span>{fmt(stats?.vocab_size ?? 0)} tokens</span> ·
-        Score: <span>{stats?.self_score.toFixed(2)}</span> · Wikipedia India pages (EN / HI / TE / TA)
+        Multilingual BPE Tokenizer Lab · <span>{fmt(stats?.vocab_size ?? 0)}</span> tokens ·
+        Score <span>{stats?.self_score.toFixed(2)}</span> · Built on Wikipedia India (EN / HI / TE / TA)
       </footer>
     </div>
   );

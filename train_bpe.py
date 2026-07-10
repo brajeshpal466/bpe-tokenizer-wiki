@@ -7,6 +7,8 @@ import string
 # We will read texts from the data directory
 output_dir = 'data'
 languages = ['en', 'hi', 'te', 'ta']
+PRIORITY_LANG = 'en'  # English should stay best-compressed (min tokens/word), like OpenAI BPE
+ENGLISH_BOOTSTRAP_RATIO = 0.28  # early merges reserved for high-frequency English pairs
 
 def load_text(lang):
     file_path = os.path.join(output_dir, f"{lang}_india.txt")
@@ -128,77 +130,90 @@ def main():
 
     # Optimization Step with Inline De-duplication
     print("\n--- Optimizing Merge Allocation with De-duplication ---")
-    
+    print(f"English-first policy: bootstrap {ENGLISH_BOOTSTRAP_RATIO:.0%} merges, then keep EN at min tokens/word")
+
     allocation = {lang: 0 for lang in languages}
     final_merges_list = []
     seen_pairs = set()
-    
-    # We want to find exactly total_merges_needed unique merges
-    for step_idx in range(total_merges_needed):
-        # Find the language that has the lowest ratio and still has merges available
-        best_lang = None
-        lowest_ratio = 999.0
-        for lang in languages:
+    english_bootstrap_target = int(total_merges_needed * ENGLISH_BOOTSTRAP_RATIO)
+
+    def tokens_per_word(lang):
+        m = allocation[lang]
+        words = trainers[lang].total_words
+        tokens = trainers[lang].token_counts[m]
+        return tokens / words if words else 999.0
+
+    def words_per_token(lang):
+        m = allocation[lang]
+        tokens = trainers[lang].token_counts[m]
+        return trainers[lang].total_words / tokens if tokens else 0.0
+
+    def pull_unique_merge(lang):
+        while allocation[lang] < len(trainers[lang].merges):
             m = allocation[lang]
-            if m < len(trainers[lang].merges):
-                # Current ratio is total_words / token_counts[m]
-                ratio = trainers[lang].total_words / trainers[lang].token_counts[m]
-                if ratio < lowest_ratio:
-                    lowest_ratio = ratio
-                    best_lang = lang
-                    
-        if best_lang is None:
-            print("Warning: Ran out of merges across all languages!")
-            break
-            
-        # Pull merges from best_lang until we find one that is NOT a duplicate
-        found = False
-        while allocation[best_lang] < len(trainers[best_lang].merges):
-            m = allocation[best_lang]
-            pair, freq = trainers[best_lang].merges[m]
+            pair, freq = trainers[lang].merges[m]
             pair_tuple = tuple(pair)
-            allocation[best_lang] += 1
-            
+            allocation[lang] += 1
             if pair_tuple not in seen_pairs:
                 seen_pairs.add(pair_tuple)
                 final_merges_list.append({
                     'pair': pair,
-                    'lang': best_lang,
+                    'lang': lang,
                     'freq': freq,
                     'step': m
                 })
-                found = True
-                break
-                
-        if not found:
-            # If we couldn't find a unique merge in best_lang, we need to backtrack and select another language
-            # Let's try to find another language that can offer a unique merge
-            alt_lang_found = False
-            # Sort other languages by ratio
-            sorted_langs = sorted(languages, key=lambda l: trainers[l].total_words / trainers[l].token_counts[allocation[l]])
-            for lang in sorted_langs:
-                if lang == best_lang:
-                    continue
-                while allocation[lang] < len(trainers[lang].merges):
-                    m = allocation[lang]
-                    pair, freq = trainers[lang].merges[m]
-                    pair_tuple = tuple(pair)
-                    allocation[lang] += 1
-                    if pair_tuple not in seen_pairs:
-                        seen_pairs.add(pair_tuple)
-                        final_merges_list.append({
-                            'pair': pair,
-                            'lang': lang,
-                            'freq': freq,
-                            'step': m
-                        })
-                        alt_lang_found = True
-                        break
-                if alt_lang_found:
-                    break
-            if not alt_lang_found:
-                print("Critical: No more unique merges could be found in any language!")
-                break
+                return True
+        return False
+
+    def pick_language():
+        # Keep English at the best (minimum) tokens-per-word ratio when possible
+        en_tpw = tokens_per_word(PRIORITY_LANG)
+        other_tpws = [tokens_per_word(l) for l in languages if l != PRIORITY_LANG]
+        if other_tpws and en_tpw > min(other_tpws) + 1e-9:
+            if allocation[PRIORITY_LANG] < len(trainers[PRIORITY_LANG].merges):
+                return PRIORITY_LANG
+
+        best_lang = None
+        lowest_wpt = 999.0
+        for lang in languages:
+            m = allocation[lang]
+            if m < len(trainers[lang].merges):
+                wpt = words_per_token(lang)
+                if wpt < lowest_wpt:
+                    lowest_wpt = wpt
+                    best_lang = lang
+        return best_lang
+
+    def try_languages(lang_order):
+        for lang in lang_order:
+            if pull_unique_merge(lang):
+                return True
+        return False
+
+    # Phase 1: bootstrap frequent English merges (OpenAI-style Latin/English priority)
+    while len(final_merges_list) < english_bootstrap_target:
+        if not pull_unique_merge(PRIORITY_LANG):
+            print("English bootstrap exhausted early.")
+            break
+
+    # Phase 2: greedy allocation with English guard + de-duplication
+    for _ in range(total_merges_needed - len(final_merges_list)):
+        best_lang = pick_language()
+        if best_lang is None:
+            print("Warning: Ran out of merges across all languages!")
+            break
+
+        if try_languages([best_lang]):
+            continue
+
+        # Fallback: any language with a unique merge, English first
+        fallback_order = [PRIORITY_LANG] + sorted(
+            [l for l in languages if l != PRIORITY_LANG],
+            key=lambda l: words_per_token(l)
+        )
+        if not try_languages(fallback_order):
+            print("Critical: No more unique merges could be found in any language!")
+            break
 
     print(f"Greedy allocation complete: merges={allocation}")
     
@@ -256,7 +271,8 @@ def main():
             parts = new_parts
         return parts
 
-    final_ratios = {}
+    final_ratios = {}       # words / tokens (legacy)
+    final_tpw_ratios = {}   # tokens / words (assignment Xi)
     final_token_counts = {}
     for lang in languages:
         words = word_lists[lang]
@@ -264,23 +280,28 @@ def main():
         for w in words:
             toks = tokenize_word(w, merge_ranks)
             total_tokens += len(toks)
-        
-        ratio = len(words) / total_tokens
-        final_ratios[lang] = ratio
-        final_token_counts[lang] = total_tokens
-        print(f"Language {lang}: Words = {len(words)}, Tokens = {total_tokens}, Ratio = {ratio:.6f}")
 
-    ratios_list = [final_ratios[lang] for lang in languages]
-    x_max = max(ratios_list)
-    x_min = min(ratios_list)
+        wpt = len(words) / total_tokens
+        tpw = total_tokens / len(words)
+        final_ratios[lang] = wpt
+        final_tpw_ratios[lang] = tpw
+        final_token_counts[lang] = total_tokens
+        print(f"Language {lang}: Words = {len(words)}, Tokens = {total_tokens}, T/W = {tpw:.6f}")
+
+    tpw_list = [final_tpw_ratios[lang] for lang in languages]
+    x_max = max(tpw_list)
+    x_min = min(tpw_list)
     diff = x_max - x_min
     self_score = 1000.0 / diff if diff > 0 else float('inf')
-    
-    print(f"\nFinal Statistics:")
-    print(f"X_max ({max(final_ratios, key=final_ratios.get)}): {x_max:.6f}")
-    print(f"X_min ({min(final_ratios, key=final_ratios.get)}): {x_min:.6f}")
-    print(f"Difference: {diff:.6f}")
+    best_lang = min(final_tpw_ratios, key=final_tpw_ratios.get)
+
+    print(f"\nFinal Statistics (tokens / words):")
+    print(f"X₄ max ({max(final_tpw_ratios, key=final_tpw_ratios.get)}): {x_max:.6f}")
+    print(f"X₁ min ({best_lang}): {x_min:.6f}")
+    print(f"Difference (X₄ − X₁): {diff:.6f}")
     print(f"Self Score: {self_score:.2f}")
+    if best_lang != PRIORITY_LANG:
+        print(f"Warning: {PRIORITY_LANG} is not minimum T/W; got {best_lang}")
     
     # Save the output files for the frontend
     os.makedirs('output', exist_ok=True)
@@ -297,10 +318,12 @@ def main():
         'merges_size': len(final_merges_list),
         'allocations': allocation,
         'ratios': final_ratios,
+        'tpw_ratios': final_tpw_ratios,
         'token_counts': final_token_counts,
         'word_counts': {lang: len(word_lists[lang]) for lang in languages},
         'self_score': self_score,
-        'diff': diff
+        'diff': diff,
+        'best_lang': best_lang
     }
     with open('output/stats.json', 'w', encoding='utf-8') as f:
         json.dump(stats, f, indent=2, ensure_ascii=False)

@@ -39,6 +39,12 @@ const LANGS = [
 
 function fmt(n) { return n.toLocaleString(); }
 
+const X_SUB = ['₁', '₂', '₃', '₄'];
+
+function XRank({ sub }) {
+  return <>X<sub>{X_SUB[sub - 1]}</sub></>;
+}
+
 export default function App() {
   const [stats, setStats]   = useState(null);
   const [vocab, setVocab]   = useState([]);
@@ -98,7 +104,7 @@ export default function App() {
       total += subs.length;
       subs.forEach(s => spans.push({ text: s, id: vocabIdMap[s] ?? -1 }));
     });
-    return { words: words.length, tokens: total, ratio: words.length / total, spans };
+    return { words: words.length, tokens: total, ratio: words.length ? total / words.length : 0, spans };
   }, [inputText, mergeRanks, vocabIdMap, merges.length]);
 
   // vocab table
@@ -128,6 +134,17 @@ export default function App() {
   const pageCount = Math.ceil(filteredVocab.length / PER_PAGE);
   const pageItems = filteredVocab.slice(page * PER_PAGE, (page+1) * PER_PAGE);
 
+  const ratiosSorted = useMemo(() => {
+    if (!stats) return [];
+    return LANGS.map(l => {
+      const w = stats.word_counts[l.id] ?? 0;
+      const t = stats.token_counts[l.id] ?? 0;
+      return { lang: l, ratio: w > 0 ? t / w : 0 };
+    })
+      .sort((a, b) => b.ratio - a.ratio)
+      .map((item, i) => ({ ...item, xSub: LANGS.length - i }));
+  }, [stats]);
+
   // --- Render ---
   if (loading) return (
     <div className="loading">
@@ -142,9 +159,11 @@ export default function App() {
     </div>
   );
 
-  const ratioVals = stats ? Object.values(stats.ratios) : [];
-  const xMax = stats ? Math.max(...ratioVals) : 0;
-  const xMin = stats ? Math.min(...ratioVals) : 0;
+  const ratioVals = ratiosSorted.map(r => r.ratio);
+  const xMax = ratioVals.length ? ratioVals[0] : 0;
+  const xMin = ratioVals.length ? ratioVals[ratioVals.length - 1] : 0;
+  const ratioDiff = xMax - xMin;
+  const computedScore = ratioDiff > 0 ? 1000 / ratioDiff : 0;
   const totalMerges = stats ? Object.values(stats.allocations).reduce((a,b)=>a+b,0) : 0;
 
   return (
@@ -160,7 +179,7 @@ export default function App() {
           <p className="subtitle">
             A shared <em>10,000-token BPE vocabulary</em> trained on Wikipedia's India
             article in English, Hindi, Telugu &amp; Tamil — optimized to maximize the
-            assignment score <em>1000 / (X_max − X_min)</em>.
+            assignment score <em>1000 / (X<sub>₄</sub> − X<sub>₁</sub>)</em>.
           </p>
           <div className="hero-badges">
             {LANGS.map(l => (
@@ -183,10 +202,10 @@ export default function App() {
         <div className="score-card">
           <div className="score-main">
             <div className="score-label">Assignment Self-Score</div>
-            <div className="score-value">{stats?.self_score.toFixed(2)}</div>
+            <div className="score-value">{computedScore.toFixed(2)}</div>
             <div className="score-formula">
-              Formula: <code>1000 / (X_max − X_min)</code>
-              {' '}= <code>1000 / {stats?.diff.toFixed(6)}</code>
+              Formula: <code>1000 / (X₄ − X₁)</code>
+              {' '}= <code>1000 / {ratioDiff.toFixed(6)}</code>
             </div>
           </div>
           <div className="score-details">
@@ -196,10 +215,10 @@ export default function App() {
               <span className="metric-lang">{stats?.base_size} base chars + {stats?.merges_size} BPE merges</span>
             </div>
             <div className="metric">
-              <span className="metric-label">Ratio Spread (X_max − X_min)</span>
-              <span className="metric-value green">{stats?.diff.toFixed(6)}</span>
+              <span className="metric-label">Ratio Spread (X₄ − X₁)</span>
+              <span className="metric-value green">{ratioDiff.toFixed(6)}</span>
               <span className="metric-lang">
-                X_max = {xMax.toFixed(6)} &nbsp;|&nbsp; X_min = {xMin.toFixed(6)}
+                X<sub>₄</sub> (max) = {xMax.toFixed(6)} &nbsp;|&nbsp; X<sub>₁</sub> (min) = {xMin.toFixed(6)}
               </span>
             </div>
           </div>
@@ -209,20 +228,39 @@ export default function App() {
         <div className="panel">
           <div className="panel-header">
             <h2 className="panel-title">
-              Language Tokenization Ratios (Words / Tokens)
+              Compression Ratios (sorted X<sub>₄</sub> → X<sub>₁</sub>)
             </h2>
           </div>
-          <div className="lang-grid">
-            {LANGS.map(l => {
-              const r = stats?.ratios[l.id] ?? 0;
-              const barPct = Math.min(r * 100, 100);
+          <p className="panel-desc">
+            <code>Xi = encoded_tokens / corpus_words</code> (tokens per word) — highest ratio = X<sub>₄</sub>, lowest = X<sub>₁</sub>
+          </p>
+
+          <div className="ratio-chart">
+            {ratiosSorted.map(({ lang, ratio, xSub }) => (
+              <div key={lang.id} className="ratio-row">
+                <span className="ratio-rank"><XRank sub={xSub} /></span>
+                <span className="ratio-lang" style={{ color: lang.color }}>{lang.name}</span>
+                <div className="ratio-bar-wrap">
+                  <div
+                    className="ratio-bar"
+                    style={{ width: `${Math.min(ratio / 1.2 * 100, 100)}%`, background: lang.color }}
+                  />
+                </div>
+                <span className="ratio-val">{ratio.toFixed(6)}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="lang-grid" style={{ marginTop: '1.5rem' }}>
+            {ratiosSorted.map(({ lang: l, ratio: r, xSub }) => {
+              const barPct = Math.min(r / 1.2 * 100, 100);
               return (
                 <div key={l.id} className={`lang-card ${l.id}`}>
                   <div className="lang-card-header">
                     <span className="lang-name">{l.native}</span>
-                    <span className="lang-code">{l.id.toUpperCase()}</span>
+                    <span className="lang-code"><XRank sub={xSub} /></span>
                   </div>
-                  <div className="ratio-label">Words / Tokens (X_{l.id === 'en' ? '1' : l.id === 'hi' ? '2' : l.id === 'te' ? '3' : '4'})</div>
+                  <div className="ratio-label">Tokens / Words (<XRank sub={xSub} />)</div>
                   <div className="ratio-value">{r.toFixed(6)}</div>
                   <div className="ratio-bar-track">
                     <div className="ratio-bar-fill" style={{ width: `${barPct}%` }} />
@@ -313,12 +351,12 @@ export default function App() {
                 <span className="tok-stat-value orange">{fmt(tokResult.tokens)}</span>
               </div>
               <div className="tok-stat-row">
-                <span className="tok-stat-label">Ratio W/T</span>
+                <span className="tok-stat-label">Tokens / word</span>
                 <span className="tok-stat-value green">{tokResult.ratio.toFixed(5)}</span>
               </div>
               <div className="tok-stat-row">
                 <span className="tok-stat-label">Compression</span>
-                <span className="tok-stat-value">{tokResult.tokens > 0 ? ((1 - tokResult.ratio) * 100).toFixed(1) : 0}%</span>
+                <span className="tok-stat-value">{tokResult.ratio > 0 ? ((1 - 1 / tokResult.ratio) * 100).toFixed(1) : 0}%</span>
               </div>
               <div className="tok-stat-row">
                 <span className="tok-stat-label">Vocab hits</span>
@@ -460,10 +498,10 @@ export default function App() {
             <h2 className="panel-title">Methodology &amp; Score Calculation</h2>
           </div>
           <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-            The assignment score is <strong style={{ color: 'var(--text)' }}>1000 / (X_max − X_min)</strong> where
-            X_i = Words_i / Tokens_i for each language. Our score is{' '}
-            <strong style={{ color: 'var(--saffron)' }}>{stats?.self_score.toFixed(2)}</strong> — achieved by
-            equalizing all four ratios to ≈ <strong style={{ color: 'var(--text)' }}>0.711</strong>.
+            The assignment score is <strong style={{ color: 'var(--text)' }}>1000 / (X₄ − X₁)</strong> where
+            X<sub>i</sub> = Tokens<sub>i</sub> / Words<sub>i</sub> (tokens per word), ranked highest → X<sub>₄</sub>, lowest → X<sub>₁</sub>. Our score is{' '}
+            <strong style={{ color: 'var(--saffron)' }}>{computedScore.toFixed(2)}</strong> — achieved by
+            equalizing all four ratios to ≈ <strong style={{ color: 'var(--text)' }}>{ratioVals.length ? (ratioVals.reduce((a, b) => a + b, 0) / ratioVals.length).toFixed(3) : '—'}</strong>.
           </p>
           <div className="method-grid">
             <div className="method-card">
@@ -479,7 +517,7 @@ export default function App() {
               <h4>2 · Per-Language BPE Training</h4>
               <p>
                 We trained separate BPE tokenizers on each language corpus, recording the
-                ratio W/T at every merge step. This gives us a{' '}
+                ratio T/W at every merge step. This gives us a{' '}
                 <strong>ratio-vs-merges curve</strong> for each language.
               </p>
             </div>
@@ -508,7 +546,7 @@ export default function App() {
       {/* ── FOOTER ───────────────────────────────── */}
       <footer>
         India Multilingual BPE Tokenizer · Vocab: <span>{fmt(stats?.vocab_size ?? 0)} tokens</span> ·
-        Score: <span>{stats?.self_score.toFixed(2)}</span> · Wikipedia India pages (EN / HI / TE / TA)
+        Score: <span>{computedScore.toFixed(2)}</span> · Wikipedia India pages (EN / HI / TE / TA)
       </footer>
     </div>
   );

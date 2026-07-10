@@ -55,6 +55,17 @@ body { font-family: var(--sans); background: var(--bg); color: var(--text); min-
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.75rem; }
 .panel-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
 .panel-title { font-size: 1.05rem; font-weight: 600; letter-spacing: -0.01em; display: flex; align-items: center; gap: 0.5rem; }
+.panel-desc { color: var(--muted); font-size: 0.88rem; margin: -0.75rem 0 1.25rem; line-height: 1.5; }
+.panel-desc code { background: rgba(255,255,255,0.06); border-radius: 4px; padding: 0.1em 0.35em; font-family: var(--mono); font-size: 0.9em; color: var(--text); }
+.ratio-chart { display: flex; flex-direction: column; gap: 0.65rem; }
+.ratio-row { display: grid; grid-template-columns: 2.5rem 5.5rem 1fr 5.5rem; align-items: center; gap: 0.75rem; padding: 0.55rem 0.75rem; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
+@media (max-width: 600px) { .ratio-row { grid-template-columns: 2.5rem 1fr 4.5rem; } .ratio-bar-wrap { display: none; } }
+.ratio-rank { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.ratio-rank sub { font-size: 0.72em; }
+.ratio-lang { font-weight: 600; font-size: 0.92rem; white-space: nowrap; }
+.ratio-bar-wrap { height: 8px; background: rgba(255,255,255,0.06); border-radius: 99px; overflow: hidden; }
+.ratio-bar { height: 100%; border-radius: 99px; transition: width 0.5s ease; min-width: 2px; }
+.ratio-val { font-family: var(--mono); font-size: 0.88rem; font-weight: 600; text-align: right; white-space: nowrap; }
 .lang-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
 .lang-card { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.25rem; position: relative; overflow: hidden; transition: border-color 0.2s, transform 0.2s; }
 .lang-card:hover { transform: translateY(-2px); border-color: rgba(255,255,255,0.15); }
